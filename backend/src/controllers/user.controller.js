@@ -3,30 +3,10 @@ const bcrypt = require("bcrypt");
 const { getToken } = require("../common/gettoken.js");
 const { uuid } = require("uuidv4");
 const nodemailer = require("nodemailer");
+const { sendMail } = require("../common/sendmail.js");
 
 exports.signUp = async (req, res) => {
-  const html = `
-    <h1>Hello</h1>
-    `;
   const code = Math.floor(Math.random() * 9999) + 1000;
-  const sendMail = async () => {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.mail.yahoo.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: "temonation123@yahoo.com",
-        pass: "tqmsyswranxdkjsp",
-      },
-    });
-    const info = await transporter.sendMail({
-      from: "petify-support <temonation123@yahoo.com>",
-      to: req.body.email,
-      subject: code,
-      html: html,
-    });
-    console.log("messege send: " + info.messageId);
-  };
   bcrypt.hash(req.body.pass, 10, (err, hash) => {
     User.create({
       username: req.body.username,
@@ -36,10 +16,10 @@ exports.signUp = async (req, res) => {
       code: code,
     })
       .then((user) => {
-        sendMail().catch((e) => console.log(e));
+        sendMail(req.body.email,code)
         res.send(user);
       })
-      .catch((err) => res.send(err));
+      .catch((err) => console.log(err));
   });
 };
 exports.getUsers = async (req, res) => {
@@ -52,7 +32,7 @@ exports.signIn = async (req, res) => {
     const user = await User.findOne({ username: username });
     if (user) {
       if (!user.confirmed)
-        res.status(401).json({ messege: "verify your email" });
+        {res.status(401).json({ messege: "verify your email" }); return}
       bcrypt.compare(pass, user.pass, (err, results) => {
         if (results) {
           const token = getToken(user.username, user._id, user.role);
@@ -80,3 +60,17 @@ exports.removeUser = async (req, res) => {
   await User.deleteOne({ _id: id });
   res.send("deleted");
 };
+exports.verifyUser = async(req, res) =>{
+  const code = req.params.code;
+  try {
+    const result = await User.findOneAndUpdate({code:code},{
+      confirmed : true
+    });
+    res.send('verified')
+  } catch (error) {
+    console.log(error);
+    res.send(error.messege);
+  }
+
+  
+}
