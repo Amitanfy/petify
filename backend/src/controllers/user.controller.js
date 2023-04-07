@@ -3,9 +3,11 @@ const bcrypt = require("bcrypt");
 const { getToken } = require("../common/gettoken.js");
 const { uuid } = require("uuidv4");
 const nodemailer = require("nodemailer");
+const validator = require("email-validator");
 const { sendMail } = require("../common/sendmail.js");
-
 exports.signUp = async (req, res) => {
+  if(!validator.validate(req.body.email)){res.status(409).json( {messege: 'valid email please'}).end(); return}
+  if(await User.findOne({username: req.body.username}) || await User.findOne({email: req.body.email})){res.status(409).json({messege:'username or email in use'}).end(); return}
   const code = Math.floor(Math.random() * 9999) + 1000;
   bcrypt.hash(req.body.pass, 10, (err, hash) => {
     User.create({
@@ -32,17 +34,19 @@ exports.signIn = async (req, res) => {
     const user = await User.findOne({ username: username });
     if (user) {
       if (!user.confirmed)
-        {res.status(401).json({ messege: "verify your email" }); return}
+        {res.status(409).json({ messege: "verify your email" }).end(); return}
       bcrypt.compare(pass, user.pass, (err, results) => {
         if (results) {
           const token = getToken(user.username, user._id, user.role);
           console.log(token);
           res.send(token);
-        } else {
-          res.status(401).json({ messege: "email or pass is incorrect" });
-        }
+        } 
       });
     }
+    else {
+      res.status(409).json({ messege: "email or pass is incorrect" }).end();
+      return
+    } 
   } catch (err) {
     console.log(err);
   }
